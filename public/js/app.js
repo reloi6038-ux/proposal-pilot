@@ -20,6 +20,7 @@
           <a href="/dashboard.html" data-page="dashboard">Dashboard</a>
           <a href="/generate.html" data-page="generate">Generate</a>
           <a href="/history.html" data-page="history">History</a>
+          <a href="/transactions.html" data-page="transactions">Transactions</a>
           <a href="/buy-credits.html" data-page="buy">Buy Credits</a>
           <a href="/profile.html" data-page="profile">Profile</a>
         </div>

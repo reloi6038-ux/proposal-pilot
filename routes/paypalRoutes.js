@@ -6,6 +6,7 @@ const { protect } = require('../middleware/auth');
 const {
   createPayPalOrder,
   capturePayPalOrder,
+  getTransactions,
 } = require('../controllers/paypalController');
 
 router.post(
@@ -33,5 +34,7 @@ router.post(
   validate,
   capturePayPalOrder
 );
+
+router.get('/transactions', protect, getTransactions);
 
 module.exports = router;

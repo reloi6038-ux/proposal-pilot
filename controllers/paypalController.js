@@ -42,8 +42,8 @@ const createPayPalOrder = async (req, res) => {
 const capturePayPalOrder = async (req, res) => {
   try {
     const { paypalOrderId } = req.body;
-    if (!paypalOrderId) {
-      return res.status(400).json({ message: 'paypalOrderId is required' });
+    if (!paypalOrderId || typeof paypalOrderId !== 'string' || paypalOrderId.trim() === '') {
+      return res.status(400).json({ message: 'Invalid or missing paypalOrderId' });
     }
 
     const transaction = await Transaction.findOne({ paypalOrderId });
@@ -54,7 +54,6 @@ const capturePayPalOrder = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized for this transaction' });
     }
 
-    // Idempotent: if already COMPLETED, return success without re-adding credits
     if (transaction.status === 'COMPLETED') {
       const freshUser = await User.findById(req.user._id).select('credits');
       return res.json({
@@ -67,8 +66,6 @@ const capturePayPalOrder = async (req, res) => {
     try {
       captureResult = await captureOrder(paypalOrderId);
     } catch (paypalError) {
-      // PayPal may reject the capture (e.g., ORDER_ALREADY_CAPTURED)
-      // Try to reconcile: fetch the order status from PayPal
       console.error('PayPal capture error:', paypalError.message);
       await Transaction.findOneAndUpdate(
         { paypalOrderId, status: 'PENDING' },
@@ -93,15 +90,13 @@ const capturePayPalOrder = async (req, res) => {
     const captureId =
       captureResult.purchaseUnits?.[0]?.payments?.captures?.[0]?.id || null;
 
-    // Atomic transition: only PENDING -> COMPLETED counts
     const updatedTransaction = await Transaction.findOneAndUpdate(
       { paypalOrderId, status: 'PENDING' },
       { status: 'COMPLETED', paypalCaptureId: captureId },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (!updatedTransaction) {
-      // Race condition: another request already completed it
       const freshUser = await User.findById(req.user._id).select('credits');
       return res.json({
         message: 'Payment already captured',
@@ -109,11 +104,10 @@ const capturePayPalOrder = async (req, res) => {
       });
     }
 
-    // Add credits atomically
     const updatedUser = await User.findByIdAndUpdate(
       req.user._id,
       { $inc: { credits: updatedTransaction.creditsAdded } },
-      { new: true }
+      { returnDocument: 'after' }
     ).select('credits');
 
     res.json({
@@ -127,4 +121,21 @@ const capturePayPalOrder = async (req, res) => {
   }
 };
 
-module.exports = { createPayPalOrder, capturePayPalOrder };
+// @desc    Get current user's transaction history
+// @route   GET /api/paypal/transactions
+// @access  Private
+const getTransactions = async (req, res) => {
+  try {
+    const transactions = await Transaction.find({ userId: req.user._id })
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .select('paypalOrderId paypalCaptureId amount currency status creditsAdded createdAt');
+
+    res.json(transactions);
+  } catch (error) {
+    console.error('Get transactions error:', error);
+    res.status(500).json({ message: 'Failed to fetch transactions' });
+  }
+};
+
+module.exports = { createPayPalOrder, capturePayPalOrder, getTransactions };

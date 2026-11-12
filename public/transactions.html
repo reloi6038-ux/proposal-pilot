@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Transactions — ProposalPilot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <style>
+    .tx-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      background: linear-gradient(180deg, var(--app-surface), rgba(255,255,255,0.02));
+      border: 1px solid var(--app-border);
+      border-radius: var(--app-radius);
+      overflow: hidden;
+    }
+    .tx-table thead th {
+      text-align: left;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--app-muted);
+      font-weight: 600;
+      padding: 14px 16px;
+      background: rgba(255, 255, 255, 0.03);
+      border-bottom: 1px solid var(--app-border);
+    }
+    .tx-table tbody td {
+      padding: 14px 16px;
+      font-size: 0.9rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      color: var(--app-text);
+      vertical-align: middle;
+    }
+    .tx-table tbody tr:last-child td { border-bottom: none; }
+    .tx-table tbody tr:hover { background: rgba(79, 140, 255, 0.05); }
+
+    .status-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    .status-COMPLETED { background: rgba(52, 211, 153, 0.15); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.35); }
+    .status-PENDING   { background: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.35); }
+    .status-FAILED    { background: rgba(248, 113, 113, 0.15); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.35); }
+    .status-CANCELLED { background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.35); }
+
+    .mono {
+      font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 0.82rem;
+      color: #b8c5db;
+    }
+    .copy-id {
+      cursor: pointer;
+      border-bottom: 1px dashed rgba(124, 176, 255, 0.4);
+    }
+    .copy-id:hover { color: #7cb0ff; }
+
+    .credits-cell { font-weight: 700; color: #7cb0ff; }
+
+    .tx-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    @media (max-width: 720px) {
+      .tx-table thead { display: none; }
+      .tx-table, .tx-table tbody, .tx-table tr, .tx-table td { display: block; width: 100%; }
+      .tx-table tr {
+        border-bottom: 1px solid var(--app-border);
+        padding: 12px 0;
+      }
+      .tx-table td {
+        border-bottom: none;
+        padding: 4px 16px;
+      }
+      .tx-table td::before {
+        content: attr(data-label);
+        display: inline-block;
+        width: 110px;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--app-muted);
+        font-weight: 600;
+      }
+    }
+  </style>
+</head>
+<body class="app-shell">
+  <div id="app-nav"></div>
+
+  <main class="app-main">
+    <div class="page-header">
+      <div>
+        <h1>Transaction History</h1>
+        <p>Every credit purchase you've made, newest first.</p>
+      </div>
+      <a href="/buy-credits.html" class="btn-primary-app">Buy More Credits</a>
+    </div>
+
+    <div class="tx-summary" id="summary"></div>
+
+    <div id="list-wrap">
+      <p style="color:var(--app-muted);">Loading transactions…</p>
+    </div>
+  </main>
+
+  <script src="/js/auth.js"></script>
+  <script src="/js/app.js"></script>
+  <script>
+    if (!requireAuth()) throw new Error('redirected');
+    renderAppNav('transactions');
+
+    (async function load() {
+      const { ok, data } = await apiFetch('/api/paypal/transactions');
+      const wrap = document.getElementById('list-wrap');
+      const summary = document.getElementById('summary');
+
+      if (!ok || !Array.isArray(data)) {
+        wrap.innerHTML = `
+          <div class="empty">
+            <h3>Could not load transactions</h3>
+            <p>${escapeHtml(data?.message || 'Please try again later.')}</p>
+          </div>
+        `;
+        return;
+      }
+
+      if (data.length === 0) {
+        wrap.innerHTML = `
+          <div class="empty">
+            <h3>No transactions yet</h3>
+            <p>Buy a credit pack to generate your first proposal.</p>
+            <a href="/buy-credits.html" class="btn-primary-app">Buy Credits</a>
+          </div>
+        `;
+        return;
+      }
+
+      // ===== Summary numbers =====
+      const completed = data.filter(t => t.status === 'COMPLETED');
+      const totalSpent = completed.reduce((s, t) => s + Number(t.amount || 0), 0);
+      const totalCredits = completed.reduce((s, t) => s + (t.creditsAdded || 0), 0);
+      const pending = data.filter(t => t.status === 'PENDING').length;
+
+      summary.innerHTML = `
+        <div class="dash-stat">
+          <div class="k">Total Spent</div>
+          <div class="v">$${totalSpent.toFixed(2)}</div>
+          <div class="hint">Across ${completed.length} completed purchase${completed.length === 1 ? '' : 's'}</div>
+        </div>
+        <div class="dash-stat">
+          <div class="k">Credits Purchased</div>
+          <div class="v">${totalCredits}</div>
+          <div class="hint">Lifetime total</div>
+        </div>
+        <div class="dash-stat">
+          <div class="k">Pending</div>
+          <div class="v">${pending}</div>
+          <div class="hint">${pending === 0 ? 'All clear' : 'Awaiting capture'}</div>
+        </div>
+      `;
+
+      // ===== Table =====
+      const rows = data.map(t => {
+        const order = t.paypalOrderId || '—';
+        const capture = t.paypalCaptureId || '—';
+        return `
+          <tr>
+            <td data-label="Date">${escapeHtml(formatDate(t.createdAt))}</td>
+            <td data-label="Pack / Amount">
+              <div style="font-weight:600;">$${Number(t.amount).toFixed(2)} ${escapeHtml(t.currency || '')}</div>
+              <div class="mono" style="font-size:0.75rem;color:var(--app-muted);">Order: <span class="copy-id" data-copy="${escapeHtml(order)}" title="Click to copy">${escapeHtml(shorten(order))}</span></div>
+            </td>
+            <td data-label="Credits" class="credits-cell">+${t.creditsAdded || 0}</td>
+            <td data-label="Status"><span class="status-badge status-${escapeHtml(t.status)}">${escapeHtml(t.status)}</span></td>
+            <td data-label="Capture ID" class="mono">${capture === '—' ? '—' : `<span class="copy-id" data-copy="${escapeHtml(capture)}" title="Click to copy">${escapeHtml(shorten(capture))}</span>`}</td>
+          </tr>
+        `;
+      }).join('');
+
+      wrap.innerHTML = `
+        <div style="overflow-x:auto;">
+          <table class="tx-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Amount</th>
+                <th>Credits</th>
+                <th>Status</th>
+                <th>Capture ID</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `;
+
+      // Click-to-copy for order and capture IDs
+      wrap.querySelectorAll('.copy-id').forEach(el => {
+        el.addEventListener('click', async (e) => {
+          e.preventDefault();
+          const value = el.getAttribute('data-copy');
+          if (!value || value === '—') return;
+          await copyToClipboard(value);
+          showToast('Copied: ' + shorten(value), 'success');
+        });
+      });
+    })();
+
+    function shorten(id) {
+      if (!id || id === '—') return '—';
+      if (id.length <= 14) return id;
+      return id.slice(0, 8) + '…' + id.slice(-4);
+    }
+  </script>
+</body>
+</html>
