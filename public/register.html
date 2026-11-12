@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create Account — ProposalPilot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <style>
+    .auth-wrap {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr;
+      place-items: center;
+      padding: 40px 20px;
+    }
+    @media (min-width: 900px) {
+      .auth-wrap {
+        grid-template-columns: 1.1fr 1fr;
+        gap: 0;
+        padding: 0;
+      }
+      .auth-left { padding: 80px 60px; height: 100vh; display: flex; flex-direction: column; justify-content: center; }
+      .auth-right { display: grid; place-items: center; padding: 40px; min-height: 100vh; border-left: 1px solid var(--app-border); }
+    }
+    .auth-left { display: none; }
+    @media (min-width: 900px) { .auth-left { display: flex; } }
+
+    .auth-left .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: var(--app-surface);
+      border: 1px solid var(--app-border);
+      color: var(--app-muted);
+      font-size: 0.8rem;
+      margin-bottom: 22px;
+      width: fit-content;
+    }
+    .auth-left .badge .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--app-success);
+      box-shadow: 0 0 10px var(--app-success);
+    }
+    .auth-left h1 {
+      font-size: 2.4rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      margin: 0 0 18px;
+    }
+    .auth-left h1 .gradient {
+      background: linear-gradient(90deg, #7cb0ff, #b79bff);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .auth-left p {
+      color: var(--app-muted);
+      font-size: 1rem;
+      max-width: 440px;
+      margin: 0 0 32px;
+      line-height: 1.65;
+    }
+    .auth-left .steps { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 18px; }
+    .auth-left .steps li {
+      display: flex; align-items: flex-start; gap: 14px;
+      color: var(--app-text);
+    }
+    .auth-left .steps .num {
+      flex-shrink: 0;
+      width: 28px; height: 28px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, rgba(79,140,255,0.2), rgba(124,92,255,0.2));
+      border: 1px solid rgba(124,176,255,0.3);
+      display: grid; place-items: center;
+      font-weight: 700;
+      font-size: 0.82rem;
+      color: #7cb0ff;
+    }
+    .auth-left .steps .txt { font-size: 0.94rem; line-height: 1.5; }
+    .auth-left .steps .txt strong { display: block; font-weight: 600; margin-bottom: 2px; }
+    .auth-left .steps .txt span { color: var(--app-muted); font-size: 0.86rem; }
+
+    .auth-card {
+      width: 100%;
+      max-width: 400px;
+    }
+    .auth-card h2 {
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin: 0 0 6px;
+    }
+    .auth-card .sub {
+      color: var(--app-muted);
+      font-size: 0.92rem;
+      margin: 0 0 26px;
+    }
+    .auth-card .field { margin-bottom: 16px; }
+    .auth-card label {
+      display: block;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--app-muted);
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .auth-card input {
+      width: 100%;
+      padding: 12px 14px;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--app-border);
+      border-radius: 10px;
+      color: var(--app-text);
+      font-size: 0.95rem;
+      font-family: inherit;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .auth-card input:focus {
+      outline: none;
+      border-color: rgba(124, 176, 255, 0.5);
+      box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.15);
+    }
+    .auth-card .hint {
+      font-size: 0.75rem;
+      color: var(--app-muted);
+      margin-top: 6px;
+    }
+    .auth-card .submit-btn {
+      width: 100%;
+      padding: 13px 18px;
+      margin-top: 6px;
+      background: linear-gradient(135deg, var(--app-primary), var(--app-primary-2));
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      box-shadow: 0 10px 28px rgba(79, 140, 255, 0.35);
+      transition: transform .15s, box-shadow .2s;
+    }
+    .auth-card .submit-btn:hover { transform: translateY(-1px); box-shadow: 0 14px 34px rgba(79, 140, 255, 0.5); }
+    .auth-card .submit-btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+    .auth-card .switch {
+      text-align: center;
+      color: var(--app-muted);
+      font-size: 0.88rem;
+      margin-top: 22px;
+    }
+    .auth-card .switch a { color: #7cb0ff; font-weight: 600; }
+    .auth-card .switch a:hover { text-decoration: underline; }
+
+    .auth-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 28px;
+      font-weight: 800;
+      font-size: 1.05rem;
+      color: var(--app-text);
+      text-decoration: none;
+      letter-spacing: -0.02em;
+    }
+    .auth-brand .dot {
+      width: 30px; height: 30px; border-radius: 9px;
+      background: linear-gradient(135deg, var(--app-primary), var(--app-primary-2));
+      display: grid; place-items: center;
+      box-shadow: 0 6px 20px rgba(79, 140, 255, 0.4);
+    }
+    .auth-brand .dot svg { width: 17px; height: 17px; }
+
+    .auth-card .alert { margin-bottom: 18px; }
+  </style>
+</head>
+<body class="app-shell">
+  <div class="auth-wrap">
+    <!-- Left marketing panel -->
+    <div class="auth-left">
+      <div class="badge"><span class="dot"></span> Free to start · Pay per proposal</div>
+      <h1>Start winning <br /><span class="gradient">more clients</span></h1>
+      <p>Create your free account in seconds. No credit card required to sign up — you only pay when you generate a proposal.</p>
+      <ul class="steps">
+        <li>
+          <div class="num">1</div>
+          <div class="txt"><strong>Create your profile</strong><span>Add your skills, bio, and experience.</span></div>
+        </li>
+        <li>
+          <div class="num">2</div>
+          <div class="txt"><strong>Buy credits with PayPal</strong><span>Starter pack starts at $4.99 for 5 proposals.</span></div>
+        </li>
+        <li>
+          <div class="num">3</div>
+          <div class="txt"><strong>Paste and generate</strong><span>Get a tailored proposal in seconds, copy it, send it.</span></div>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Right form panel -->
+    <div class="auth-right">
+      <div class="auth-card">
+        <a href="/" class="auth-brand">
+          <span class="dot">
+            <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l6-16 4 10 6-6-4 12z"/></svg>
+          </span>
+          ProposalPilot
+        </a>
+
+        <h2>Create your account</h2>
+        <p class="sub">Free to join. Start generating in under 2 minutes.</p>
+
+        <div id="alert" class="alert"></div>
+
+        <form id="register-form">
+          <div class="field">
+            <label for="name">Full Name</label>
+            <input id="name" type="text" required placeholder="Jane Doe" autocomplete="name" />
+          </div>
+          <div class="field">
+            <label for="email">Email</label>
+            <input id="email" type="email" required placeholder="you@example.com" autocomplete="email" />
+          </div>
+          <div class="field">
+            <label for="password">Password</label>
+            <input id="password" type="password" required minlength="6" placeholder="At least 6 characters" autocomplete="new-password" />
+            <div class="hint">Use 6–72 characters.</div>
+          </div>
+          <button type="submit" class="submit-btn" id="submit-btn">Create Account</button>
+        </form>
+
+        <p class="switch">Already have an account? <a href="/login.html">Sign in</a></p>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/auth.js"></script>
+  <script>
+    // ===== Same behavior as before =====
+    redirectIfLoggedIn();
+
+    document.getElementById('register-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideAlert('alert');
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = true;
+      btn.textContent = 'Creating account…';
+
+      const name = document.getElementById('name').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+
+      const { ok, data } = await apiFetch('/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({ name, email, password }),
+      });
+
+      if (ok) {
+        setToken(data.token);
+        setStoredUser({ email: data.email, name: data.name, credits: data.credits });
+        window.location.href = '/dashboard.html';
+      } else {
+        // Surface validation errors clearly (Phase 6 middleware returns { errors: [...] })
+        const firstError = data?.errors?.[0]?.message;
+        showAlert('alert', firstError || data?.message || 'Registration failed.');
+        btn.disabled = false;
+        btn.textContent = 'Create Account';
+      }
+    });
+  </script>
+</body>
+</html>

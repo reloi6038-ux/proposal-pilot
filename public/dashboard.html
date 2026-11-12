@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — ProposalPilot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body class="app-shell">
+  <div id="app-nav"></div>
+
+  <main class="app-main">
+    <div class="page-header">
+      <div>
+        <h1 id="welcome">Dashboard</h1>
+        <p>Welcome back. Here's what's happening with your proposals.</p>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <a href="/generate.html" class="btn-primary-app">+ New Proposal</a>
+        <a href="/buy-credits.html" class="btn-ghost-app">Buy Credits</a>
+      </div>
+    </div>
+
+    <div class="dash-stats">
+      <div class="dash-stat">
+        <div class="k">Credits Available</div>
+        <div class="v" id="stat-credits">—</div>
+        <div class="hint">1 credit = 1 proposal</div>
+      </div>
+      <div class="dash-stat">
+        <div class="k">Total Proposals</div>
+        <div class="v" id="stat-proposals">—</div>
+        <div class="hint">Last 50 shown below</div>
+      </div>
+      <div class="dash-stat">
+        <div class="k">Latest Proposal</div>
+        <div class="v" id="stat-latest" style="font-size:1rem;">—</div>
+        <div class="hint" id="stat-latest-hint">No proposals yet</div>
+      </div>
+    </div>
+
+    <div class="page-header" style="margin-top:8px;">
+      <div>
+        <h1 style="font-size:1.15rem;">Recent Proposals</h1>
+        <p>Click any proposal to read, copy, or download it.</p>
+      </div>
+      <a href="/history.html" class="btn-ghost-app">View all</a>
+    </div>
+
+    <div id="recent-wrap"></div>
+  </main>
+
+  <script src="/js/auth.js"></script>
+  <script src="/js/app.js"></script>
+  <script>
+    if (!requireAuth()) throw new Error('redirected');
+    renderAppNav('dashboard');
+
+    (async function load() {
+      const user = getStoredUser() || {};
+      document.getElementById('welcome').textContent = user.name ? `Welcome back, ${user.name.split(' ')[0]}` : 'Dashboard';
+
+      const me = await apiFetch('/api/auth/me');
+      if (me.ok) {
+        document.getElementById('stat-credits').textContent = me.data.credits;
+        setStoredUser({ ...(getStoredUser() || {}), ...me.data });
+        const pill = document.getElementById('nav-credit-pill');
+        if (pill) pill.textContent = `${me.data.credits} credits`;
+      }
+
+      const hist = await apiFetch('/api/ai/history');
+      const proposals = (hist.ok && Array.isArray(hist.data)) ? hist.data : [];
+      document.getElementById('stat-proposals').textContent = proposals.length;
+
+      if (proposals.length === 0) {
+        document.getElementById('recent-wrap').innerHTML = `
+          <div class="empty">
+            <h3>No proposals yet</h3>
+            <p>Buy credits and generate your first proposal to get started.</p>
+            <a href="/buy-credits.html" class="btn-primary-app">Buy Credits</a>
+          </div>
+        `;
+        return;
+      }
+
+      const latest = proposals[0];
+      document.getElementById('stat-latest').textContent = latest.jobDescription.slice(0, 40) + (latest.jobDescription.length > 40 ? '…' : '');
+      document.getElementById('stat-latest-hint').textContent = formatDate(latest.createdAt);
+
+      const cards = proposals.slice(0, 6).map((p) => `
+        <a class="proposal-card" href="/proposal.html?id=${p._id}">
+          <div class="meta">${formatDate(p.createdAt)}</div>
+          <h3>${escapeHtml(p.jobDescription).slice(0, 90)}${p.jobDescription.length > 90 ? '…' : ''}</h3>
+          <div class="snippet">${escapeHtml(p.generatedText).slice(0, 160)}…</div>
+          <div class="actions">
+            <span class="btn-ghost-app" style="font-size:0.82rem;padding:6px 12px;">Open →</span>
+          </div>
+        </a>
+      `).join('');
+
+      document.getElementById('recent-wrap').innerHTML = `<div class="proposal-grid">${cards}</div>`;
+    })();
+  </script>
+</body>
+</html>

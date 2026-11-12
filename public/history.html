@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>History — ProposalPilot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body class="app-shell">
+  <div id="app-nav"></div>
+
+  <main class="app-main">
+    <div class="page-header">
+      <div>
+        <h1>Proposal History</h1>
+        <p>All your generated proposals, newest first.</p>
+      </div>
+      <a href="/generate.html" class="btn-primary-app">+ New Proposal</a>
+    </div>
+
+    <div id="list-wrap">
+      <p class="muted" style="color:var(--app-muted);">Loading…</p>
+    </div>
+  </main>
+
+  <script src="/js/auth.js"></script>
+  <script src="/js/app.js"></script>
+  <script>
+    if (!requireAuth()) throw new Error('redirected');
+    renderAppNav('history');
+
+    (async function load() {
+      const { ok, data } = await apiFetch('/api/ai/history');
+      const wrap = document.getElementById('list-wrap');
+
+      if (!ok || !Array.isArray(data) || data.length === 0) {
+        wrap.innerHTML = `
+          <div class="empty">
+            <h3>Nothing here yet</h3>
+            <p>Your generated proposals will appear here.</p>
+            <a href="/generate.html" class="btn-primary-app">Generate a Proposal</a>
+          </div>
+        `;
+        return;
+      }
+
+      wrap.innerHTML = `<div class="proposal-grid">${data.map((p) => `
+        <a class="proposal-card" href="/proposal.html?id=${p._id}">
+          <div class="meta">${formatDate(p.createdAt)}</div>
+          <h3>${escapeHtml(p.jobDescription).slice(0, 100)}${p.jobDescription.length > 100 ? '…' : ''}</h3>
+          <div class="snippet">${escapeHtml(p.generatedText).slice(0, 180)}…</div>
+          <div class="actions">
+            <span class="btn-ghost-app" style="font-size:0.82rem;padding:6px 12px;">Open →</span>
+          </div>
+        </a>
+      `).join('')}</div>`;
+    })();
+  </script>
+</body>
+</html>

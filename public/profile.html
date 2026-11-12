@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Profile — ProposalPilot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <style>
+    .field { margin-bottom: 18px; }
+    .field label {
+      display:block;
+      font-size:0.78rem;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+      color:var(--app-muted);
+      font-weight:600;
+      margin-bottom:8px;
+    }
+    .field input, .field textarea {
+      width:100%;
+      background:rgba(0,0,0,0.25);
+      border:1px solid var(--app-border);
+      color:var(--app-text);
+      border-radius:10px;
+      padding:12px 14px;
+      font-size:0.95rem;
+      font-family:inherit;
+      resize:vertical;
+    }
+    .field textarea { min-height:110px; }
+  </style>
+</head>
+<body class="app-shell">
+  <div id="app-nav"></div>
+
+  <main class="app-main" style="max-width:720px;">
+    <div class="page-header">
+      <div>
+        <h1>Your Profile</h1>
+        <p>This information is used by the AI to tailor every proposal.</p>
+      </div>
+    </div>
+
+    <div class="glass-card">
+      <form id="profile-form">
+        <div class="field">
+          <label for="name">Name</label>
+          <input id="name" type="text" required />
+        </div>
+        <div class="field">
+          <label for="skills">Skills (comma-separated)</label>
+          <input id="skills" type="text" placeholder="React, Node.js, TypeScript, REST APIs" />
+        </div>
+        <div class="field">
+          <label for="bio">Short Bio</label>
+          <textarea id="bio" placeholder="A sentence or two about what you do."></textarea>
+        </div>
+        <div class="field">
+          <label for="experience">Experience</label>
+          <textarea id="experience" placeholder="Relevant projects, years of experience, notable clients."></textarea>
+        </div>
+        <button type="submit" class="btn-primary-app" id="save-btn">Save Profile</button>
+      </form>
+    </div>
+  </main>
+
+  <script src="/js/auth.js"></script>
+  <script src="/js/app.js"></script>
+  <script>
+    if (!requireAuth()) throw new Error('redirected');
+    renderAppNav('profile');
+
+    (async function load() {
+      const { ok, data } = await apiFetch('/api/auth/me');
+      if (!ok) return;
+      document.getElementById('name').value = data.name || '';
+      document.getElementById('skills').value = (data.profile?.skills || []).join(', ');
+      document.getElementById('bio').value = data.profile?.bio || '';
+      document.getElementById('experience').value = data.profile?.experience || '';
+    })();
+
+    document.getElementById('profile-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('save-btn');
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+
+      const name = document.getElementById('name').value.trim();
+      const skills = document.getElementById('skills').value.split(',').map(s => s.trim()).filter(Boolean);
+      const bio = document.getElementById('bio').value.trim();
+      const experience = document.getElementById('experience').value.trim();
+
+      const { ok, data } = await apiFetch('/api/auth/profile', {
+        method: 'PUT',
+        body: JSON.stringify({ name, profile: { skills, bio, experience } }),
+      });
+
+      btn.disabled = false;
+      btn.textContent = 'Save Profile';
+
+      if (ok) {
+        setStoredUser({ ...(getStoredUser() || {}), name: data.name });
+        showToast('Profile saved', 'success');
+      } else {
+        showToast(data?.message || 'Failed to save profile', 'error');
+      }
+    });
+  </script>
+</body>
+</html>

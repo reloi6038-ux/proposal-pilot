@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Proposal — ProposalPilot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body class="app-shell">
+  <div id="app-nav"></div>
+
+  <main class="app-main">
+    <div id="reader-wrap">
+      <p style="color:var(--app-muted);">Loading proposal…</p>
+    </div>
+  </main>
+
+  <script src="/js/auth.js"></script>
+  <script src="/js/app.js"></script>
+  <script>
+    if (!requireAuth()) throw new Error('redirected');
+    renderAppNav('history');
+
+    const params = new URLSearchParams(window.location.search);
+    const proposalId = params.get('id');
+
+    if (!proposalId) {
+      document.getElementById('reader-wrap').innerHTML = `
+        <div class="empty"><h3>No proposal id</h3><p>Open a proposal from your dashboard or history.</p>
+        <a href="/history.html" class="btn-primary-app">Back to history</a></div>`;
+    } else {
+      load(proposalId);
+    }
+
+    let currentProposal = null;
+
+    async function load(id) {
+      const { ok, status, data } = await apiFetch(`/api/ai/proposals/${id}`);
+      const wrap = document.getElementById('reader-wrap');
+
+      if (!ok) {
+        wrap.innerHTML = `
+          <div class="empty">
+            <h3>${status === 404 ? 'Proposal not found' : 'Could not load proposal'}</h3>
+            <p>${data?.message || 'Please try again.'}</p>
+            <a href="/history.html" class="btn-primary-app">Back to history</a>
+          </div>
+        `;
+        return;
+      }
+
+      currentProposal = data;
+      wrap.innerHTML = `
+        <div class="page-header">
+          <div>
+            <a href="/history.html" style="color:var(--app-muted);font-size:0.85rem;">← Back to history</a>
+            <h1 class="reader-title" style="margin-top:10px;">Proposal</h1>
+            <div class="reader-meta">Generated ${formatDate(data.createdAt)} · Model: ${escapeHtml(data.modelUsed || '—')}</div>
+          </div>
+          <div class="reader-actions">
+            <button class="btn-ghost-app" id="btn-copy">Copy</button>
+            <button class="btn-ghost-app" id="btn-download">Download .txt</button>
+            <button class="btn-ghost-app" id="btn-delete" style="color:var(--app-danger);border-color:rgba(248,113,113,0.3);">Delete</button>
+          </div>
+        </div>
+
+        <div class="glass-card" style="margin-bottom:18px;">
+          <div class="k" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--app-muted);font-weight:600;margin-bottom:8px;">Job Description</div>
+          <div class="job-preview">${escapeHtml(data.jobDescription)}</div>
+        </div>
+
+        <div class="glass-card">
+          <div class="k" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--app-muted);font-weight:600;margin-bottom:8px;">Generated Proposal</div>
+          <div class="prose-output" id="proposal-text">${escapeHtml(data.generatedText)}</div>
+        </div>
+      `;
+
+      document.getElementById('btn-copy').addEventListener('click', async () => {
+        await copyToClipboard(data.generatedText);
+        showToast('Copied to clipboard', 'success');
+      });
+
+      document.getElementById('btn-download').addEventListener('click', () => {
+        const blob = new Blob(
+          [`Job Description:\n${data.jobDescription}\n\n---\n\n${data.generatedText}\n`],
+          { type: 'text/plain;charset=utf-8' }
+        );
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `proposal-${new Date(data.createdAt).toISOString().slice(0,10)}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast('Downloaded', 'success');
+      });
+
+      document.getElementById('btn-delete').addEventListener('click', async () => {
+        if (!confirm('Delete this proposal? This cannot be undone.')) return;
+        const res = await apiFetch(`/api/ai/proposals/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          showToast('Proposal deleted', 'success');
+          setTimeout(() => window.location.href = '/history.html', 600);
+        } else {
+          showToast(res.data?.message || 'Delete failed', 'error');
+        }
+      });
+    }
+  </script>
+</body>
+</html>

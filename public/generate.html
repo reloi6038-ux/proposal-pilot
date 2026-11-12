@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Generate — ProposalPilot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body class="app-shell">
+  <div id="app-nav"></div>
+
+  <main class="app-main">
+    <div class="page-header">
+      <div>
+        <h1>Generate a Proposal</h1>
+        <p>Paste a job description. Each generation costs <strong>1 credit</strong>.</p>
+      </div>
+      <div class="app-user" style="border:none;padding:0;margin:0;">
+        <span class="pill" id="credit-display">— credits</span>
+      </div>
+    </div>
+
+    <div class="glass-card" style="margin-bottom:18px;">
+      <label for="job-description" style="display:block;font-size:0.8rem;font-weight:600;color:var(--app-muted);letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px;">Job Description</label>
+      <textarea id="job-description" rows="8" placeholder="Paste the full job description here (minimum 20 characters)..." style="width:100%;background:rgba(0,0,0,0.25);border:1px solid var(--app-border);color:var(--app-text);border-radius:10px;padding:14px;font-size:0.95rem;font-family:inherit;resize:vertical;min-height:180px;"></textarea>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;gap:12px;flex-wrap:wrap;">
+        <button class="btn-primary-app" id="generate-btn">Generate Proposal</button>
+        <span class="muted" id="char-count" style="color:var(--app-muted);font-size:0.82rem;">0 / 5000</span>
+      </div>
+    </div>
+
+    <div id="output-wrap"></div>
+  </main>
+
+  <script src="/js/auth.js"></script>
+  <script src="/js/app.js"></script>
+  <script>
+    if (!requireAuth()) throw new Error('redirected');
+    renderAppNav('generate');
+
+    const jd = document.getElementById('job-description');
+    const charCount = document.getElementById('char-count');
+    jd.addEventListener('input', () => {
+      charCount.textContent = `${jd.value.length} / 5000`;
+    });
+
+    (async function init() {
+      const me = await apiFetch('/api/auth/me');
+      if (me.ok) {
+        document.getElementById('credit-display').textContent = `${me.data.credits} credits`;
+        setStoredUser({ ...(getStoredUser() || {}), ...me.data });
+        const pill = document.getElementById('nav-credit-pill');
+        if (pill) pill.textContent = `${me.data.credits} credits`;
+      }
+    })();
+
+    document.getElementById('generate-btn').addEventListener('click', generate);
+
+    async function generate() {
+      const jobDescription = jd.value.trim();
+      if (jobDescription.length < 20) {
+        return showToast('Job description must be at least 20 characters.', 'error');
+      }
+
+      const btn = document.getElementById('generate-btn');
+      btn.disabled = true;
+      btn.textContent = 'Generating…';
+      document.getElementById('output-wrap').innerHTML = `
+        <div class="glass-card" style="color:var(--app-muted);">
+          <span class="spinner" style="border-top-color:#7cb0ff;"></span>
+          Generating proposal. This usually takes 5–15 seconds.
+        </div>
+      `;
+
+      const { ok, status, data } = await apiFetch('/api/ai/generate', {
+        method: 'POST',
+        body: JSON.stringify({ jobDescription }),
+      });
+
+      btn.disabled = false;
+      btn.textContent = 'Generate Proposal';
+
+      if (ok) {
+        const credits = data.creditsRemaining;
+        document.getElementById('credit-display').textContent = `${credits} credits`;
+        const pill = document.getElementById('nav-credit-pill');
+        if (pill) pill.textContent = `${credits} credits`;
+        setStoredUser({ ...(getStoredUser() || {}), credits });
+
+        document.getElementById('output-wrap').innerHTML = `
+          <div class="page-header" style="margin-top:32px;">
+            <div>
+              <h1 style="font-size:1.15rem;">Your Proposal</h1>
+              <p>Saved to your history. <a href="/proposal.html?id=${data.proposalId}" style="color:#7cb0ff;">Open full view →</a></p>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn-ghost-app" id="copy-out">Copy</button>
+              <a class="btn-ghost-app" href="/proposal.html?id=${data.proposalId}">Open full view</a>
+            </div>
+          </div>
+          <div class="prose-output" id="proposal-text">${escapeHtml(data.generatedText)}</div>
+        `;
+
+        document.getElementById('copy-out').addEventListener('click', async () => {
+          await copyToClipboard(data.generatedText);
+          showToast('Copied to clipboard', 'success');
+        });
+      } else if (status === 402) {
+        document.getElementById('output-wrap').innerHTML = `
+          <div class="empty">
+            <h3>Insufficient credits</h3>
+            <p>You have ${data.credits ?? 0} credits. Buy a pack to keep generating.</p>
+            <a class="btn-primary-app" href="/buy-credits.html">Buy Credits</a>
+          </div>
+        `;
+      } else {
+        document.getElementById('output-wrap').innerHTML = `
+          <div class="glass-card" style="border-color:rgba(248,113,113,0.3);color:#fca5a5;">
+            ${escapeHtml(data?.message || 'Generation failed. Please try again.')}
+          </div>
+        `;
+      }
+    }
+  </script>
+</body>
+</html>
